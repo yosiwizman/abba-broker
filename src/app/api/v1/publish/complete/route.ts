@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { checkRateLimit } from '@/lib/rate-limit';
-import { getPublishJob, updateJobStatus } from '@/lib/db';
+import { getPublishJob } from '@/lib/db';
 import { PublishCompleteRequestSchema } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';

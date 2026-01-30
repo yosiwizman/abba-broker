@@ -5,7 +5,6 @@
  * Uploads files directly and creates deployments.
  */
 
-import crypto from 'crypto';
 import { updateJobStatus } from './db';
 import { redactSensitiveInfo } from './auth';
 

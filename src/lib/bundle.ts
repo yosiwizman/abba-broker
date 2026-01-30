@@ -5,8 +5,7 @@
  */
 
 import crypto from 'crypto';
-import { Readable } from 'stream';
-import unzipper from 'unzipper';
+import JSZip from 'jszip';
 import type { DeploymentFile } from './vercel';
 
 const MAX_BUNDLE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -74,71 +73,58 @@ export async function extractBundle(buffer: Buffer): Promise<{
   const files: DeploymentFile[] = [];
   const hash = computeHash(buffer);
 
-  // Create a readable stream from buffer
-  const stream = Readable.from(buffer);
+  try {
+    const zip = await JSZip.loadAsync(buffer);
+    const entries = Object.keys(zip.files);
 
-  return new Promise((resolve, reject) => {
-    stream
-      .pipe(unzipper.Parse())
-      .on('entry', async (entry) => {
-        const path = entry.path;
-        const type = entry.type;
-        const size = entry.vars.uncompressedSize || 0;
+    for (const path of entries) {
+      const entry = zip.files[path];
 
-        // Skip directories
-        if (type === 'Directory') {
-          entry.autodrain();
-          return;
-        }
+      // Skip directories
+      if (entry.dir) {
+        continue;
+      }
 
-        // Skip files that are too large
-        if (size > MAX_FILE_SIZE) {
-          console.warn(`[bundle] Skipping large file: ${path} (${size} bytes)`);
-          entry.autodrain();
-          return;
-        }
+      // Skip hidden files and common junk
+      const basename = path.split('/').pop() || '';
+      if (
+        basename.startsWith('.') ||
+        basename === 'Thumbs.db' ||
+        basename === 'desktop.ini'
+      ) {
+        continue;
+      }
 
-        // Skip hidden files and common junk
-        const basename = path.split('/').pop() || '';
-        if (
-          basename.startsWith('.') ||
-          basename === 'Thumbs.db' ||
-          basename === 'desktop.ini'
-        ) {
-          entry.autodrain();
-          return;
-        }
+      // Check file limit
+      if (files.length >= MAX_FILES) {
+        console.warn(`[bundle] File limit reached (${MAX_FILES}), skipping remaining files`);
+        break;
+      }
 
-        // Check file limit
-        if (files.length >= MAX_FILES) {
-          console.warn(`[bundle] File limit reached (${MAX_FILES}), skipping remaining files`);
-          entry.autodrain();
-          return;
-        }
+      // Read file content
+      const content = await entry.async('nodebuffer');
 
-        // Read file content
-        const chunks: Buffer[] = [];
-        entry.on('data', (chunk: Buffer) => chunks.push(chunk));
-        entry.on('end', () => {
-          const content = Buffer.concat(chunks);
-          const isBinary = isBinaryFile(path);
+      // Skip files that are too large
+      if (content.length > MAX_FILE_SIZE) {
+        console.warn(`[bundle] Skipping large file: ${path} (${content.length} bytes)`);
+        continue;
+      }
 
-          files.push({
-            file: path,
-            data: isBinary ? content.toString('base64') : content.toString('utf-8'),
-            encoding: isBinary ? 'base64' : undefined,
-          });
-        });
-      })
-      .on('close', () => {
-        console.log(`[bundle] Extracted ${files.length} files`);
-        resolve({ files, hash });
-      })
-      .on('error', (error) => {
-        console.error('[bundle] Extraction error:', error);
-        reject(new Error(`Failed to extract bundle: ${error.message}`));
+      const isBinary = isBinaryFile(path);
+
+      files.push({
+        file: path,
+        data: isBinary ? content.toString('base64') : content.toString('utf-8'),
+        encoding: isBinary ? 'base64' : undefined,
       });
-  });
+    }
+
+    console.log(`[bundle] Extracted ${files.length} files`);
+    return { files, hash };
+  } catch (error) {
+    console.error('[bundle] Extraction error:', error);
+    throw new Error(`Failed to extract bundle: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
 
 /**
