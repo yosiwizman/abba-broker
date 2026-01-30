@@ -1,0 +1,17 @@
+/**
+ * Health Check Endpoint
+ *
+ * GET /api/health
+ * Returns { ok: true, time: ISO8601 }
+ */
+
+import { NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
+
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    time: new Date().toISOString(),
+  });
+}
