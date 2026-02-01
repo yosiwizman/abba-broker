@@ -34,10 +34,7 @@ function apiUrl(path: string): string {
 /**
  * Make a request to Vercel API
  */
-async function vercelFetch(
-  path: string,
-  options: RequestInit = {}
-): Promise<Response> {
+async function vercelFetch(path: string, options: RequestInit = {}): Promise<Response> {
   if (!VERCEL_TOKEN) {
     throw new Error('BROKER_VERCEL_TOKEN not configured');
   }
@@ -120,9 +117,7 @@ export async function createDeployment(
 /**
  * Ensure a Vercel project exists, create if not
  */
-async function ensureProject(
-  name: string
-): Promise<{ id: string; name: string }> {
+async function ensureProject(name: string): Promise<{ id: string; name: string }> {
   // Try to get existing project
   const getResponse = await vercelFetch(`/v9/projects/${encodeURIComponent(name)}`);
 
@@ -158,9 +153,7 @@ async function ensureProject(
 /**
  * Get deployment status
  */
-export async function getDeploymentStatus(
-  deploymentId: string
-): Promise<{
+export async function getDeploymentStatus(deploymentId: string): Promise<{
   readyState: 'QUEUED' | 'BUILDING' | 'READY' | 'ERROR' | 'CANCELED';
   url: string | null;
   errorMessage?: string;

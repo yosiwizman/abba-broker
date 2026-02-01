@@ -45,10 +45,7 @@ export async function POST(request: NextRequest) {
     // Get job
     const job = await getPublishJob(publishId);
     if (!job) {
-      return NextResponse.json(
-        { error: 'Publish job not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Publish job not found' }, { status: 404 });
     }
 
     // Can't cancel terminal states

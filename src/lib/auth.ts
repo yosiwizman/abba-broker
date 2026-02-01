@@ -23,20 +23,38 @@ export function constantTimeCompare(a: string, b: string): boolean {
 }
 
 /**
- * Validate the device token from the request header
+ * Result of detailed token validation
  */
-export function validateDeviceToken(token: string | null): boolean {
+export type TokenValidationResult =
+  | { valid: true }
+  | { valid: false; reason: 'not_configured' | 'missing' | 'invalid' };
+
+/**
+ * Validate the device token with detailed error reason
+ */
+export function validateDeviceTokenDetailed(token: string | null): TokenValidationResult {
   if (!DEVICE_TOKEN) {
-    // If no token is configured, reject all requests
     console.error('[auth] ABBA_DEVICE_TOKEN not configured');
-    return false;
+    return { valid: false, reason: 'not_configured' };
   }
 
   if (!token) {
-    return false;
+    return { valid: false, reason: 'missing' };
   }
 
-  return constantTimeCompare(token, DEVICE_TOKEN);
+  if (constantTimeCompare(token, DEVICE_TOKEN)) {
+    return { valid: true };
+  }
+
+  return { valid: false, reason: 'invalid' };
+}
+
+/**
+ * Validate the device token from the request header
+ */
+export function validateDeviceToken(token: string | null): boolean {
+  const result = validateDeviceTokenDetailed(token);
+  return result.valid;
 }
 
 /**

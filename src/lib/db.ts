@@ -42,11 +42,7 @@ export async function createPublishJob(params: {
 
   if (isSupabaseConfigured()) {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('publish_jobs')
-      .insert(job)
-      .select()
-      .single();
+    const { data, error } = await supabase.from('publish_jobs').insert(job).select().single();
 
     if (error) {
       console.error('[db] Failed to create publish job:', error);
@@ -135,7 +131,13 @@ export async function updatePublishJob(
 export async function updateJobStatus(
   publishId: string,
   status: PublishStatus,
-  extra?: { url?: string; error?: string; vercel_deployment_id?: string; vercel_project_id?: string; bundle_path?: string }
+  extra?: {
+    url?: string;
+    error?: string;
+    vercel_deployment_id?: string;
+    vercel_project_id?: string;
+    bundle_path?: string;
+  }
 ): Promise<PublishJob | null> {
   return updatePublishJob(publishId, {
     status,

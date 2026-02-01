@@ -44,10 +44,7 @@ export async function POST(request: NextRequest) {
     // Get job
     const job = await getPublishJob(publishId);
     if (!job) {
-      return NextResponse.json(
-        { error: 'Publish job not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Publish job not found' }, { status: 404 });
     }
 
     // For our flow, the upload endpoint already triggers deployment
@@ -55,10 +52,7 @@ export async function POST(request: NextRequest) {
 
     // If job is still in early stages, it means upload hasn't happened
     if (job.status === 'queued') {
-      return NextResponse.json(
-        { error: 'Bundle not uploaded yet' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Bundle not uploaded yet' }, { status: 400 });
     }
 
     // If job is already deploying/building, just confirm
