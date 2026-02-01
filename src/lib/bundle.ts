@@ -87,11 +87,7 @@ export async function extractBundle(buffer: Buffer): Promise<{
 
       // Skip hidden files and common junk
       const basename = path.split('/').pop() || '';
-      if (
-        basename.startsWith('.') ||
-        basename === 'Thumbs.db' ||
-        basename === 'desktop.ini'
-      ) {
+      if (basename.startsWith('.') || basename === 'Thumbs.db' || basename === 'desktop.ini') {
         continue;
       }
 
@@ -123,7 +119,9 @@ export async function extractBundle(buffer: Buffer): Promise<{
     return { files, hash };
   } catch (error) {
     console.error('[bundle] Extraction error:', error);
-    throw new Error(`Failed to extract bundle: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Failed to extract bundle: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 
@@ -131,9 +129,7 @@ export async function extractBundle(buffer: Buffer): Promise<{
  * Add default files if missing (index.html for static sites)
  */
 export function ensureDefaultFiles(files: DeploymentFile[]): DeploymentFile[] {
-  const hasIndexHtml = files.some(
-    (f) => f.file === 'index.html' || f.file.endsWith('/index.html')
-  );
+  const hasIndexHtml = files.some((f) => f.file === 'index.html' || f.file.endsWith('/index.html'));
 
   if (!hasIndexHtml) {
     // Add a default index.html

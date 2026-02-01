@@ -30,10 +30,7 @@ export async function PUT(request: NextRequest) {
     // Get publishId from query params
     const publishId = request.nextUrl.searchParams.get('publishId');
     if (!publishId) {
-      return NextResponse.json(
-        { error: 'Missing publishId query parameter' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing publishId query parameter' }, { status: 400 });
     }
 
     console.log(`[publish:upload] Starting upload for job: ${publishId}`);
@@ -41,10 +38,7 @@ export async function PUT(request: NextRequest) {
     // Get job
     const job = await getPublishJob(publishId);
     if (!job) {
-      return NextResponse.json(
-        { error: 'Publish job not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Publish job not found' }, { status: 404 });
     }
 
     // Check job status
@@ -69,10 +63,7 @@ export async function PUT(request: NextRequest) {
 
       if (!file) {
         await updateJobStatus(publishId, 'failed', { error: 'No bundle file in form data' });
-        return NextResponse.json(
-          { error: 'No bundle file provided' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'No bundle file provided' }, { status: 400 });
       }
 
       bundleBuffer = Buffer.from(await file.arrayBuffer());
@@ -87,16 +78,15 @@ export async function PUT(request: NextRequest) {
     const sizeValidation = validateBundleSize(bundleBuffer.length);
     if (!sizeValidation.valid) {
       await updateJobStatus(publishId, 'failed', { error: sizeValidation.error });
-      return NextResponse.json(
-        { error: sizeValidation.error },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: sizeValidation.error }, { status: 400 });
     }
 
     // Verify hash if provided
     const actualHash = computeHash(bundleBuffer);
     if (job.bundle_hash && actualHash !== job.bundle_hash) {
-      console.warn(`[publish:upload] Hash mismatch: expected ${job.bundle_hash}, got ${actualHash}`);
+      console.warn(
+        `[publish:upload] Hash mismatch: expected ${job.bundle_hash}, got ${actualHash}`
+      );
       // Don't fail, just log - hash verification is optional
     }
 

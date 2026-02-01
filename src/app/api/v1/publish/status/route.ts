@@ -27,19 +27,13 @@ export async function GET(request: NextRequest) {
     // Get publishId from query params
     const publishId = request.nextUrl.searchParams.get('publishId');
     if (!publishId) {
-      return NextResponse.json(
-        { error: 'Missing publishId query parameter' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing publishId query parameter' }, { status: 400 });
     }
 
     // Get job
     const job = await getPublishJob(publishId);
     if (!job) {
-      return NextResponse.json(
-        { error: 'Publish job not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Publish job not found' }, { status: 404 });
     }
 
     // If job has a Vercel deployment and is not in a terminal state,
@@ -64,7 +58,7 @@ export async function GET(request: NextRequest) {
     if (job.vercel_deployment_id && ['building', 'deploying'].includes(status)) {
       try {
         const vercelStatus = await getDeploymentStatus(job.vercel_deployment_id);
-        
+
         // Map Vercel status to our status
         switch (vercelStatus.readyState) {
           case 'READY':
