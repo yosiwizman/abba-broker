@@ -8,7 +8,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 
-const DEVICE_TOKEN = process.env.ABBA_DEVICE_TOKEN;
+/**
+ * Get the server's device token from environment.
+ * Returns null if not configured (empty or missing).
+ */
+function getServerToken(): string | null {
+  const token = process.env.ABBA_DEVICE_TOKEN;
+  return token && token.trim().length > 0 ? token.trim() : null;
+}
+
+/**
+ * Check if the server token is configured
+ */
+export function isServerTokenConfigured(): boolean {
+  return getServerToken() !== null;
+}
+
+/**
+ * Get first 8 chars of SHA256 hash (safe fingerprint for logging)
+ */
+export function getTokenHashPrefix(token: string): string {
+  const hash = crypto.createHash('sha256').update(token).digest('hex');
+  return hash.substring(0, 8);
+}
 
 /**
  * Constant-time string comparison to prevent timing attacks
@@ -30,11 +52,25 @@ export type TokenValidationResult =
   | { valid: false; reason: 'not_configured' | 'missing' | 'invalid' };
 
 /**
- * Validate the device token with detailed error reason
+ * Validate the device token with detailed error reason.
+ * Also logs safe diagnostics (hash prefixes, not actual tokens).
  */
 export function validateDeviceTokenDetailed(token: string | null): TokenValidationResult {
-  if (!DEVICE_TOKEN) {
-    console.error('[auth] ABBA_DEVICE_TOKEN not configured');
+  const serverToken = getServerToken();
+
+  // Log safe diagnostics
+  const serverConfigured = serverToken !== null;
+  const headerPresent = token !== null && token.length > 0;
+  const serverHashPrefix = serverToken ? getTokenHashPrefix(serverToken) : 'none';
+  const clientHashPrefix = token ? getTokenHashPrefix(token) : 'none';
+
+  console.log(
+    `[auth] serverConfigured=${serverConfigured}, headerPresent=${headerPresent}, ` +
+      `serverHash=${serverHashPrefix}, clientHash=${clientHashPrefix}`
+  );
+
+  if (!serverToken) {
+    console.error('[auth] ABBA_DEVICE_TOKEN not configured on server');
     return { valid: false, reason: 'not_configured' };
   }
 
@@ -42,10 +78,13 @@ export function validateDeviceTokenDetailed(token: string | null): TokenValidati
     return { valid: false, reason: 'missing' };
   }
 
-  if (constantTimeCompare(token, DEVICE_TOKEN)) {
+  if (constantTimeCompare(token, serverToken)) {
     return { valid: true };
   }
 
+  console.warn(
+    `[auth] Token mismatch: server=${serverHashPrefix}..., client=${clientHashPrefix}...`
+  );
   return { valid: false, reason: 'invalid' };
 }
 
@@ -65,20 +104,36 @@ export function getDeviceToken(request: NextRequest): string | null {
 }
 
 /**
- * Auth middleware for API routes
- * Returns null if authenticated, or an error response if not
+ * Auth middleware for API routes.
+ * Returns null if authenticated, or an error response if not.
+ *
+ * Error responses:
+ * - 503 BrokerMisconfigured: ABBA_DEVICE_TOKEN not set on server
+ * - 401 Unauthorized: Missing or invalid device token from client
  */
 export function requireAuth(request: NextRequest): NextResponse | null {
   const token = getDeviceToken(request);
+  const result = validateDeviceTokenDetailed(token);
 
-  if (!validateDeviceToken(token)) {
+  if (result.valid) {
+    return null;
+  }
+
+  // Server misconfigured - return 503
+  if (result.reason === 'not_configured') {
     return NextResponse.json(
-      { error: 'Unauthorized', message: 'Invalid or missing device token' },
-      { status: 401 }
+      {
+        error: 'BrokerMisconfigured',
+        message: 'ABBA_DEVICE_TOKEN not configured on server. Set it in Vercel env and redeploy.',
+      },
+      { status: 503 }
     );
   }
 
-  return null;
+  // Client error - return 401
+  const message = result.reason === 'missing' ? 'Missing device token' : 'Invalid device token';
+
+  return NextResponse.json({ error: 'Unauthorized', message }, { status: 401 });
 }
 
 /**
