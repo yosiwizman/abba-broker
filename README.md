@@ -39,9 +39,10 @@ Validates the device token without performing any other operation.
 
 **Responses:**
 
-- `200`: `{ ok: true, auth: "ok", time: "2024-01-01T00:00:00.000Z" }` — Token is valid
+- `200`: `{ ok: true, auth: "ok", time: "..." }` — Token is valid
 - `401`: `{ error: "Unauthorized", message: "Missing device token" }` — Header not provided
 - `401`: `{ error: "Unauthorized", message: "Invalid device token" }` — Token doesn't match
+- `503`: `{ error: "BrokerMisconfigured", message: "ABBA_DEVICE_TOKEN not configured on server..." }` — Server env not set
 
 **Security:** This endpoint never returns the actual token value. Use it to verify token configuration without risking exposure.
 
@@ -124,6 +125,31 @@ Returns `{ success, status }`
 
 \*If Supabase is not configured, the broker uses an in-memory store (jobs won't persist across restarts).
 
+### Token Setup Checklist
+
+1. **Generate a secure token** (at least 32 characters):
+   ```bash
+   openssl rand -hex 32
+   ```
+2. **Set `ABBA_DEVICE_TOKEN` in Vercel**:
+   - Go to your Vercel project → Settings → Environment Variables
+   - Add `ABBA_DEVICE_TOKEN` with your generated token
+   - **Important**: Changes to environment variables require a new deployment to take effect
+3. **Redeploy the broker**:
+   ```bash
+   vercel --prod
+   ```
+4. **Copy the same token to ABBA AI desktop** via Owner Setup or Admin Config (Ctrl+Shift+K)
+5. **Test the connection** using the "Test Connection" button in Admin Config
+
+**Common Issues:**
+
+| Error Code               | Meaning                               | Solution                                       |
+| ------------------------ | ------------------------------------- | ---------------------------------------------- |
+| 503 BrokerMisconfigured  | `ABBA_DEVICE_TOKEN` not set on server | Set env var in Vercel and redeploy             |
+| 401 Missing device token | Client didn't send token header       | Check desktop token is saved                   |
+| 401 Invalid device token | Token mismatch                        | Ensure desktop and broker use exact same token |
+
 ### Supabase Setup
 
 To persist publish jobs, create a Supabase project and run the migration:
@@ -159,8 +185,9 @@ npm run build
 - Device tokens are validated using constant-time comparison
 - Rate limiting: 60 requests/minute per IP
 - Max bundle size: 50MB
-- Tokens are never logged; error messages are redacted
+- Token values are never logged; only safe hash prefixes (first 8 chars of SHA256) are logged for debugging
 - All secrets are stored server-side only
+- Server logs include safe diagnostics: `serverConfigured`, `headerPresent`, `serverHash`, `clientHash`
 
 ## Example: Publish Flow
 

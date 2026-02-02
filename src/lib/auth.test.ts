@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { constantTimeCompare } from './auth';
+import { constantTimeCompare, getTokenHashPrefix } from './auth';
 
 describe('auth', () => {
   describe('constantTimeCompare', () => {
@@ -96,6 +96,73 @@ describe('auth', () => {
       const { validateDeviceTokenDetailed: fn } = await import('./auth');
       const result = fn('any-token');
       expect(result).toEqual({ valid: false, reason: 'not_configured' });
+    });
+
+    it('returns not_configured when ABBA_DEVICE_TOKEN is empty string', async () => {
+      process.env.ABBA_DEVICE_TOKEN = '';
+      const { validateDeviceTokenDetailed: fn } = await import('./auth');
+      const result = fn('any-token');
+      expect(result).toEqual({ valid: false, reason: 'not_configured' });
+    });
+
+    it('returns not_configured when ABBA_DEVICE_TOKEN is whitespace only', async () => {
+      process.env.ABBA_DEVICE_TOKEN = '   ';
+      const { validateDeviceTokenDetailed: fn } = await import('./auth');
+      const result = fn('any-token');
+      expect(result).toEqual({ valid: false, reason: 'not_configured' });
+    });
+  });
+
+  describe('getTokenHashPrefix', () => {
+    it('returns 8-character hex string', () => {
+      const hash = getTokenHashPrefix('test-token');
+      expect(hash).toHaveLength(8);
+      expect(hash).toMatch(/^[a-f0-9]{8}$/);
+    });
+
+    it('returns same hash for same input', () => {
+      const hash1 = getTokenHashPrefix('my-secret-token');
+      const hash2 = getTokenHashPrefix('my-secret-token');
+      expect(hash1).toBe(hash2);
+    });
+
+    it('returns different hash for different input', () => {
+      const hash1 = getTokenHashPrefix('token-a');
+      const hash2 = getTokenHashPrefix('token-b');
+      expect(hash1).not.toBe(hash2);
+    });
+  });
+
+  describe('isServerTokenConfigured', () => {
+    const originalEnv = process.env.ABBA_DEVICE_TOKEN;
+
+    afterEach(() => {
+      if (originalEnv !== undefined) {
+        process.env.ABBA_DEVICE_TOKEN = originalEnv;
+      } else {
+        delete process.env.ABBA_DEVICE_TOKEN;
+      }
+    });
+
+    it('returns true when ABBA_DEVICE_TOKEN is set', async () => {
+      process.env.ABBA_DEVICE_TOKEN = 'valid-token';
+      vi.resetModules();
+      const { isServerTokenConfigured: fn } = await import('./auth');
+      expect(fn()).toBe(true);
+    });
+
+    it('returns false when ABBA_DEVICE_TOKEN is not set', async () => {
+      delete process.env.ABBA_DEVICE_TOKEN;
+      vi.resetModules();
+      const { isServerTokenConfigured: fn } = await import('./auth');
+      expect(fn()).toBe(false);
+    });
+
+    it('returns false when ABBA_DEVICE_TOKEN is empty', async () => {
+      process.env.ABBA_DEVICE_TOKEN = '';
+      vi.resetModules();
+      const { isServerTokenConfigured: fn } = await import('./auth');
+      expect(fn()).toBe(false);
     });
   });
 });

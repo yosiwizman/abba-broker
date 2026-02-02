@@ -10,6 +10,7 @@
  * - 200: { ok: true, auth: "ok", time: ISO8601 }
  * - 401: { error: "Unauthorized", message: "Missing device token" }
  * - 401: { error: "Unauthorized", message: "Invalid device token" }
+ * - 503: { error: "BrokerMisconfigured", message: "ABBA_DEVICE_TOKEN not configured..." }
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -22,13 +23,19 @@ export async function GET(request: NextRequest) {
   const result = validateDeviceTokenDetailed(token);
 
   if (!result.valid) {
-    const message =
-      result.reason === 'missing'
-        ? 'Missing device token'
-        : result.reason === 'not_configured'
-          ? 'Server token not configured'
-          : 'Invalid device token';
+    // Server misconfigured - return 503
+    if (result.reason === 'not_configured') {
+      return NextResponse.json(
+        {
+          error: 'BrokerMisconfigured',
+          message: 'ABBA_DEVICE_TOKEN not configured on server. Set it in Vercel env and redeploy.',
+        },
+        { status: 503 }
+      );
+    }
 
+    // Client error - return 401
+    const message = result.reason === 'missing' ? 'Missing device token' : 'Invalid device token';
     return NextResponse.json({ error: 'Unauthorized', message }, { status: 401 });
   }
 
